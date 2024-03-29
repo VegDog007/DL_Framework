@@ -8,7 +8,10 @@ import core.datasets as datasets
 import logging
 # assigning the device
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-# device = accelerator.device # if use hugging face accelerator 
+from accelerator import Accelerator
+
+
+
 #AMP
 try:
     from torch.cuda.amp import GardScaler
@@ -44,41 +47,49 @@ class Logger:
         self.writer=SummaryWriter(log_dir=args.logdir)
 
 
+
 def train(args):
-    model=NewStereo(args)
+    if (args.mixed_precision):
+        accelerator= Accelerator(mixed_precision="fp16")
+    else:
+        accelerator=Accelerator()
+    device = accelerator.device # if use hugging face accelerator 
+
+    model=Model(args)
     print(f"Parameter Count: {count_parameters(model)}")
 
     train_loader=datasets.fetch_dataloader(args)
-
     optimizer,scheduler=creat_optimizer(args,model)
     total_steps = 0
 
     logger=Logger(model,scheduler)
 
+
     # check latest model checkpoints
-    latest_model=AutoLoad_Checkpoint(args.logdir)
-
-    if latest_model is not None:
-        assert args.restore_ckpt.endswith(".pth")
-        logging.info("Loading checkpoint...")
-        checkpoint = torch.load(args.restore_ckpt)
-        model.load_state_dict(checkpoint, strict=True)
-        logging.info(f"Done loading checkpoint")
-
+    model=AutoLoad_Checkpoint(model,args.logdir)
     model.to(device)
+    model, optimizer, train_loader, scheduler = accelerator.prepare(model, optimizer, train_loader, scheduler)
     # Enabling the Dropout and BatchNormalization
     model.train()
-    
     model.freeze_bn() # Keep BatchNorm forzen , provided in model 
-
     valid_frequency=10000
+    should_keep_training=True
+    global_batch_num=0
+    
+    # start training
+    while should_keep_training:
+        
+        
 
-    # code here --------------------------------------------------------------gyt
+
+
+
 
 
 if __name__ == '__main__':
     parser=argparse.ArgumentParser()
     parser.add_argument('--logdir',default='./checkpoints/',help="path of checkpoints")
+    parser.add_argument("--mixed_precision",default=True,action="store_true",help="used mixed precision")
     # training parameters
     parser.add_argument('--batch_size',type=int,default=8,help="batch size of training")
     parser.add_argument('--tain_datasets',args='+',default=['sceneflow'],help='add one or more dataset for training')
@@ -89,4 +100,5 @@ if __name__ == '__main__':
 
     args=parser.parse_args()
 
+    
     train(args)

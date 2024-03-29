@@ -3,7 +3,7 @@ import torchvision.transforms.functional as TF
 import torch   
 import PIL.Image as Image 
 # auto check the checkpoint in "logdir" and return the latest model's path
-def AutoLoad_Checkpoint(logdir):
+def AutoLoad_Checkpoint(model,logdir):
     latest_time=0
     latest_model=None
     for filename in os.listdir(logdir):
@@ -13,12 +13,16 @@ def AutoLoad_Checkpoint(logdir):
             if model_time>latest_time:
                 latest_time=model_time
                 latest_model=model_path
+
     if latest_model is not None:
-        print(f"Load the model: {latest_model}......")
-        return latest_model
+        assert latest_model.endswith(".pth")
+        print("Loading checkpoint...")
+        checkpoint = torch.load(latest_model)
+        model.load_state_dict(checkpoint, strict=True)
+        print(f"Done loading checkpoint")
     else:
         print("No checkpoint exists !")
-        return None
+    return model
     
 # Data transforms
 
