@@ -7,6 +7,8 @@ import random
 from core.utils import frame_utils
 import copy
 from glob import glob
+import logging
+
 
 class MyDataset(Dataset):
     def __init__(self,aug_params=None,sparse=False,reader=None):
@@ -144,5 +146,48 @@ class SceneFlow(MyDataset):
             self._add_things("TRAIN")
             self._add_monkaa("TRAIN")
             self._add_driving("TRAIN")
+    def _add_things(self,split="TRAIN"):
+        "Add FlyingThing3D data to the dataset"
+        original_len=len(self.disparity_list)
+        root=self.root
+        # root = osp.join(self.root, 'FlyingThings3D')
+        left_images=sorted(glob(os.path.join(root,self.dstype,split,'*/*/left/*.png')))
+        right_images=[im.replace('left','right') for im in left_images]
+        disparity_images=[im.replace('left','disparity').replace('.png','.pfm') for im in left_images]
+        # choose 400 images for validation 
+        state=np.random.get_state()
+        np.random.seed(1000)
+        val_idx=set(np.random.permutation(len(left_images))[:400])
+
+
+        for idx,(img1,img2,disp) in enumerate(zip(left_images,right_images,disparity_images)):
+            if (split=="TEST" and idx in val_idx) or split=="TRAIN":
+                self.image_list+=[[img1,img2]]
+                self.disparity_list+=[disp]
+        logging.info("Added {} images from {}".format(len(self.disparity_list)-original_len,self.root))
+    
+    def _add_monkaa(self,split="TRAIN"):
+        "Add monkaa data to the dataset"
+        original_len=len(self.disparity_list)
+        root=self.root  
+        left_images=sorted(glob(os.path.join(self.root,self.dstype,split,'*/left/*.png')))
+        rigth_images=[im.replace('left','right') for im in left_images]
+        disparity_images=[im.replace('left','disparity').replace('.png','.pfm') for im in left_images]
+        for idx,(img1,img2,disp) in enumerate(zip(left_images,rigth_images,disparity_images)):
+            self.image_list+=[[img1,img2]]
+            self.disparity_list+=[disp]
+        logging.info("Added{} images from {}".format(len(self.disparity_list)-original_len),self.root)
+
+    def _add_driving(self,split="TRAIN"):
+        "Add driving data to the dataset"
+        original_len=len(self.disparity_list)
+        root=self.root
+        left_images=sorted(glob(os.path.join(self.root,self.dstype,split,'*/left/*.png')))
+        rigth_images=[im.replace('left','right') for im in left_images]
+        disparity_images=[im.replace('left','disparity').replace('.png','.pfm') for im in left_images]
+        for idx,(img1,img2,disp) in enumerate(zip(left_images,rigth_images,disparity_images)):
+            self.image_list+=[[img1,img2]]
+            self.disparity_list+=[disp]
+        logging.info("Added {} images from {}".format(len(self.disparity_list)-original_len,self.root))
 
     
